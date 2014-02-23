@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+	<head>
+		<title>A Quad With Three.js</title>
+		<style>
+			body{ background-color: grey; }
+			canvas{ background-color: white; }
+		</style>
+		<script src="three.min.js"></script>
+		<script>
+			var CANVAS_WIDTH = 400,
+                CANVAS_HEIGHT= 300;
+
+            var renderer = null,
+                scene = null,
+                camera = null;
+
+            function initWebGL()
+            {
+                setupRenderer();
+                setupScene();
+                setupCamera();
+
+                renderer.render(scene, camera);
+            }
+			
+			function setupRenderer()
+			{
+				var test_canvas = document.createElement('canvas');
+				var gl = null;
+				
+				try{
+					gl = (test_canvas.getContext("webgl") || test_canvas.getContext("experimental-webgl"));
+				}catch(e){
+				
+				}
+				
+				if(gl)
+				{
+					// WebGL renderer
+					renderer = new THREE.WebGLRenderer();
+				}else
+				{
+					// Canvas (2D context) renderer
+					renderer = new THREE.CanvasRenderer();
+				}
+				test_canvas = undefined;
+				
+				renderer.setSize( CANVAS_WIDTH, CANVAS_HEIGHT );
+				renderer.setClearColorHex(0x777777, 1.0);
+				
+				// where the canvas element goes in the doc
+				document.body.appendChild( renderer.domElement );
+			}
+			
+			function setupScene()
+			{
+				scene = new THREE.Scene();
+				// add the quad mesh to the scene
+				addMesh();
+			}
+			
+			function setupCamera()
+			{
+				camera = new THREE.PerspectiveCamera(35, CANVAS_WIDTH / CANVAS_HEIGHT, 0.1, 10000);
+				camera.position.set(-17, 12, 17);
+				camera.lookAt(scene.position);
+				scene.add( camera );
+			}
+			
+			function addMesh()
+			{
+				
+				var quadVertices = [ 
+					// made out of two triangles	
+					-3.4, -2.2, 0.0,
+					0.0, 3.4, 0.0,
+					3.4, -2.2, 0.0,
+					
+					-3.4, -2.2, 0.0,
+					0.0, 3.4, 0.0,
+					-6.8, 3.4, 0.0	
+				];
+
+				var geometry = new THREE.Geometry();
+				
+				for(var i=0; i<quadVertices.length; i += 3)
+				{
+					var vertex = new THREE.Vector3(
+								quadVertices[i],
+								quadVertices[i + 1],
+								quadVertices[i + 2]
+								);
+					geometry.vertices.push(vertex);
+				}				
+				geometry.faces.push( new THREE.Face3(2, 1, 0) );
+				geometry.faces.push( new THREE.Face3(3, 4, 5) );
+
+				var mesh = new THREE.Mesh(geometry,
+						new THREE.MeshBasicMaterial( { color: 0xFF0000 } ));
+						
+				scene.add(mesh);
+			}
+			
+		</script>
+	</head>
+	<body onload="initWebGL()">
+	</body>
+</html>
