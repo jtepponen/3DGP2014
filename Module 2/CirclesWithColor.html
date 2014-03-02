@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+	<head>
+		<title>A Circle from Angle Data</title>
+		<style>
+			body{ background-color: grey; }
+			canvas{ background-color: white; }
+		</style>
+		<script id="shader-vs" type="x-shader/x-vertex">
+			attribute float aVertexAngle;
+			uniform float uCircleRadius;
+			varying vec4 vColor;
+			
+			void transform(float a, out vec4 result)
+			{
+				float xCoord;
+				float yCoord;
+				
+				xCoord = sin(a) * uCircleRadius;
+				yCoord = cos(a) * uCircleRadius;
+				
+				result.x = xCoord;
+				result.y = yCoord;
+				result.z = 0.0;
+				result.w = 1.0;
+			}
+			
+			vec4 color(float a)
+			{
+				vec4 result = vec4(0.0, 0.0, 0.0, 1.0);
+				float redAmount;
+				float greenAmount;
+				
+				redAmount = sin(a);
+				greenAmount = cos(a);
+				// map the values to 0.0-1.0
+				redAmount += 1.0;
+				greenAmount += 1.0;
+				redAmount /= 2.0;
+				greenAmount /= 2.0;
+				
+				result.r = redAmount;
+				result.g = greenAmount;
+				
+				return result;
+			}
+			
+			void main(void) {
+				vec4 vertexPos;
+				transform(aVertexAngle, vertexPos);
+				gl_Position = vertexPos;
+				vColor = color(aVertexAngle);
+				gl_PointSize = 3.0;
+			}
+		</script>
+		<script id="shader-fs" type="x-shader/x-fragment">
+			precision mediump float;
+			
+			varying vec4 vColor;
+			
+			void main(void) {
+				gl_FragColor = vColor;
+			}
+		</script>
+		<script>
+			var gl = null,
+				canvas = null,
+				glProgram = null,
+				fragmentShader = null,
+				vertexShader = null;
+				
+			var vertexAngleAttribute = null,
+				circleAngleBuffer = null,
+				vertexRadiusUniform = null;
+				
+			var circleRadius = 0.8;
+				
+			var mode = "TRIANGLE_FAN";
+			
+			
+			// ----INIT----
+			function initWebGL()
+			{
+				canvas = document.getElementById("my-canvas");  
+				try{
+					gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");					
+				}catch(e){
+				}
+								
+				if(gl)
+				{
+					setupWebGL();
+					initShaders();
+					setupBuffers();
+					drawScene();	
+				}else{	
+					alert(  "Error: Your browser does not appear to support WebGL.");
+				}
+			}
+			
+			function setupWebGL()
+			{
+				gl.clearColor(0.1, 0.1, 0.3, 1.0); 	
+				gl.clear(gl.COLOR_BUFFER_BIT);
+
+				
+			}
+			
+			function initShaders()
+			{
+				// get the shader sources
+				var fs_source = document.getElementById('shader-fs').innerHTML,
+					vs_source = document.getElementById('shader-vs').innerHTML;
+
+				// compile shaders	
+                vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+				fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+				
+				// create program object
+				glProgram = gl.createProgram();
+				
+				// attach shaders to the program
+                gl.attachShader(glProgram, vertexShader);
+                gl.attachShader(glProgram, fragmentShader);
+				// link the program
+                gl.linkProgram(glProgram);
+
+                if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+                    alert("Unable to initialize the shader program.");
+                }
+				
+				// use program
+				gl.useProgram(glProgram);
+				
+				vertexRadiusUniform = gl.getUniformLocation(glProgram, "uCircleRadius");
+			}
+			
+			function makeShader(source, type)
+			{
+				// create the shader object
+				var shader = gl.createShader(type);
+				// attach the source to the shader 
+                gl.shaderSource(shader, source);
+				// compile
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+                }
+				return shader;
+			}
+			
+			function setupBuffers()
+			{
+				// in radians, roughly 30 degree increments
+				var circleAngles = [ 
+						
+					0.524, 1.047, 1.571,
+					2.094, 2.618, 3.142,
+					3.665, 4.189, 4.712,
+					5.236, 5.760, 6.283
+				];
+				// create and bind the buffer and put the data into it
+				circleAngleBuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, circleAngleBuffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circleAngles), gl.STATIC_DRAW);	
+			}
+			
+			function drawScene()
+			{
+				// get the reference to the aVertexAngle attribute (in the vertex shader)
+				vertexAngleAttribute = gl.getAttribLocation(glProgram, "aVertexAngle");
+				// enable attribute array
+                gl.enableVertexAttribArray(vertexAngleAttribute);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, circleAngleBuffer);
+				gl.vertexAttribPointer(vertexAngleAttribute, 1, gl.FLOAT, false, 0, 0);
+				
+				gl.uniform1f(vertexRadiusUniform, circleRadius);
+				
+				// draw according to the vertex data with TRIANGLES mode
+				gl.drawArrays(gl[mode], 0, 12);
+			}
+			
+			function processRadio(radio)
+			{
+				var huh = document.getElementsByName("dMode");
+				
+				var lenght = huh.length;
+				
+				for(i=0;i<lenght;i++)
+				{
+					if(huh[i].checked)
+					{
+						mode = huh[i].value;
+						setupWebGL();
+						drawScene();
+					}
+				}
+			}
+		</script>
+	</head>
+	<body onload="initWebGL()">
+		<canvas id="my-canvas" width="500" height="500">
+		Your browser does not support the HTML5 canvas element.
+		</canvas>
+		
+		<h2>Controls:</h2>
+		
+		<input type="radio" name="dMode" onClick="processRadio()" value="TRIANGLE_FAN"> Polygon <br />
+		<input type="radio" name="dMode" onClick="processRadio()" value="LINE_LOOP"> Line loop <br />
+		<input type="radio" name="dMode" onClick="processRadio()" value="POINTS"> Point sprites
+	</body>
+</html>
