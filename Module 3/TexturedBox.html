@@ -1,0 +1,474 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Textured Enviroment Box</title>
+		<style>
+			body{ background-color: grey; }
+			canvas{ background-color: white; }
+		</style>
+		<script src="three.min.js"></script>
+		<!-- for animation frame -->
+		<script src="raf_polyfill.js"></script>
+		<script id="shader-vs" type="x-shader/x-vertex">
+			attribute vec3 aVertexPosition;
+			attribute vec2 aTexCoord;
+			
+			uniform mat4 uModelView;
+			uniform mat4 uProjection;
+			
+			varying vec2 vTexCoord;
+						
+			void main(void) {
+				// pass the texture coordinates
+				vTexCoord = aTexCoord;
+				
+				gl_Position = uProjection  * uModelView * vec4(aVertexPosition, 1.0);
+			}
+		</script>
+		<script id="shader-fs" type="x-shader/x-fragment">
+			
+			varying highp vec2 vTexCoord;
+			
+			uniform sampler2D uSampler;
+			
+			void main(void) {
+				// sample the pixel at the coordinates to get the fragment color
+				gl_FragColor = texture2D( uSampler, vTexCoord );
+			}
+		</script>
+		<script>
+			var gl = null,
+				canvas = null,
+				glProgram = null,
+				fragmentShader = null,
+				vertexShader = null;
+				
+			var vertexPositionAttribute = null,
+				vertexTexCoordAttribute = null,
+				vertexBuffer = null,
+				texCoordBuffer = null,
+				
+			var	projectionMatrix = new THREE.Matrix4(),
+				modelViewMatrix = new THREE.Matrix4();
+				
+			var	boxTexture1 = null,
+				boxTexture2 = null,
+				boxTexture3 = null,
+				boxTexture4 = null,
+				boxTexture5 = null,
+				boxTexture6 = null;
+				
+			var boxTextureImage1 = null,
+				boxTextureImage2 = null,
+				boxTextureImage3 = null,
+				boxTextureImage4 = null,
+				boxTextureImage5 = null,
+				boxTextureImage6 = null;
+							
+			// ----INIT----
+			function initWebGL()
+			{
+				canvas = document.getElementById("my-canvas");  
+				try{
+					gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");					
+				}catch(e){
+				}
+								
+				if(gl)
+				{
+					initShaders();
+					setupBuffers();
+					getMatrixUniforms();
+					
+					loadTextures();
+									
+					(function animLoop(){
+							
+						setupWebGL();
+						setMatrixUniforms();
+						
+						drawScene(); 
+						
+						requestAnimationFrame(animLoop, canvas);
+					})();
+					
+					
+				}else{	
+					alert(  "Error: Your browser does not appear to support WebGL.");
+				}
+			}
+			
+			function loadTextures()
+			{
+				
+				boxTextureImage1 = new Image();
+				boxTextureImage1.onload = function()
+				{
+					boxTexture1 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture1);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage1);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture1) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage1.src = './Textures/negx.jpg';
+				
+				//---
+				
+				boxTextureImage2 = new Image();
+				boxTextureImage2.onload = function()
+				{
+					boxTexture2 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture2);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage2);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture2) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage2.src = './Textures/posz.jpg';
+				
+				//---
+				
+				boxTextureImage3 = new Image();
+				boxTextureImage3.onload = function()
+				{
+					boxTexture3 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture3);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage3);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture3) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage3.src = './Textures/posx.jpg';
+				
+				//---
+				
+				boxTextureImage4 = new Image();
+				boxTextureImage4.onload = function()
+				{
+					boxTexture4 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture4);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage4);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture4) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage4.src = './Textures/negz.jpg';
+				
+				//---
+				
+				boxTextureImage5 = new Image();
+				boxTextureImage5.onload = function()
+				{
+					boxTexture5 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture5);
+					gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage5);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture5) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage5.src = './Textures/posy.jpg';
+				
+				//---
+				
+				boxTextureImage6 = new Image();
+				boxTextureImage6.onload = function()
+				{
+					boxTexture6 = gl.createTexture();
+					gl.bindTexture(gl.TEXTURE_2D, boxTexture6);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boxTextureImage6);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						
+					if( !gl.isTexture(boxTexture6) )
+					{
+						console.error("Error: Texture is invalid");
+					}
+				}
+				boxTextureImage6.src = './Textures/negy.jpg';
+				
+			}
+						
+			function getMatrixUniforms(){
+                glProgram.pMatrixUniform = gl.getUniformLocation(glProgram, "uProjection");
+                glProgram.mvMatrixUniform = gl.getUniformLocation(glProgram, "uModelView");          
+				glProgram.samplerUniform = gl.getUniformLocation(glProgram, "uSampler");
+            }
+			
+			function setMatrixUniforms() {
+                gl.uniformMatrix4fv(glProgram.pMatrixUniform, false, projectionMatrix.flattenToArray([]));
+                gl.uniformMatrix4fv(glProgram.mvMatrixUniform, false, modelViewMatrix.flattenToArray([]));
+            }
+			
+			function setupWebGL()
+			{
+				gl.clearColor(0.1, 0.1, 0.3, 1.0); 	
+				gl.clear(gl.COLOR_BUFFER_BIT);
+
+				gl.viewport(0, 0, canvas.width, canvas.height);
+				projectionMatrix.makePerspective(85, canvas.width / canvas.height, 0.1, 10000);
+				modelViewMatrix.identity;
+				var pos = new THREE.Vector3(0.0, -0.1, 0.0);
+				modelViewMatrix.setPosition(pos);
+				
+				// apply some rotation
+				var rotMatrix = new THREE.Matrix4();
+				rotMatrix.makeRotationY(0.01);
+				modelViewMatrix.multiply( rotMatrix );
+				
+			}
+			
+			function initShaders()
+			{
+				// get the shader sources
+				var fs_source = document.getElementById('shader-fs').innerHTML,
+					vs_source = document.getElementById('shader-vs').innerHTML;
+
+				// compile shaders	
+                vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+				fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+				
+				// create program object
+				glProgram = gl.createProgram();
+				
+				// attach shaders to the program
+                gl.attachShader(glProgram, vertexShader);
+                gl.attachShader(glProgram, fragmentShader);
+				// link the program
+                gl.linkProgram(glProgram);
+
+                if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+                    alert("Unable to initialize the shader program.");
+                }
+				
+				// use program
+				gl.useProgram(glProgram);
+				
+			}
+			
+			function makeShader(source, type)
+			{
+				// create the shader object
+				var shader = gl.createShader(type);
+				// attach the source to the shader 
+                gl.shaderSource(shader, source);
+				// compile
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+                }
+				return shader;
+			}
+			
+			function setupBuffers()
+			{
+				var vertices = [ 
+					
+					// first plane
+					-2.0, 2.0, -2.0,
+					2.0, 2.0, -2.0,
+					-2.0, -2.0, -2.0,
+					
+					2.0, -2.0, -2.0,
+					-2.0, -2.0, -2.0,
+					2.0, 2.0, -2.0,
+					
+					// second plane (left side of first)
+					-2.0, 2.0, 2.0,
+					-2.0, 2.0, -2.0,
+					-2.0, -2.0, 2.0,
+					
+					-2.0, -2.0, -2.0,
+					-2.0, 2.0, -2.0,
+					-2.0, -2.0, 2.0,
+					
+					// third plane (right side of first)
+					2.0, 2.0, -2.0,
+					2.0, 2.0, 2.0,
+					2.0, -2.0, -2.0,
+					
+					2.0, -2.0, 2.0,
+					2.0, -2.0, -2.0,
+					2.0, 2.0, 2.0,
+					
+					// fourth plane (opposite of first)
+					2.0, 2.0, 2.0,
+					-2.0, 2.0, 2.0,
+					2.0, -2.0, 2.0,
+					
+					-2.0, -2.0, 2.0,
+					2.0, -2.0, 2.0,
+					-2.0, 2.0, 2.0,
+					
+					// top plane
+					2.0, 2.0, -2.0,
+					2.0, 2.0, 2.0,
+					-2.0, 2.0, -2.0,
+					
+					-2.0, 2.0, 2.0,
+					-2.0, 2.0, -2.0,
+					2.0, 2.0, 2.0,
+					
+					// bottom plane
+					2.0, -2.0, -2.0,
+					2.0, -2.0, 2.0,
+					-2.0, -2.0, -2.0,
+					
+					-2.0, -2.0, 2.0,
+					-2.0, -2.0, -2.0,
+					2.0, -2.0, 2.0
+					
+					
+				];
+
+				// create and bind the buffer and put the data into it
+				vertexBuffer = gl.createBuffer();
+								
+				vertexBuffer.itemSize = 3;
+				vertexBuffer.itemCount = 36;
+				gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+				
+				// 36 sets of coordinates
+				var texCoordinates = [
+					
+					//first
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					1.0, 1.0,
+					0.0, 1.0,
+					1.0, 0.0,
+
+					//second
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					1.0, 1.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					//third
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					1.0, 1.0,
+					0.0, 1.0,
+					1.0, 0.0,
+					
+					//fourth
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					1.0, 1.0,
+					0.0, 1.0,
+					1.0, 0.0,
+					
+					// top
+					
+					1.0, 1.0,
+					0.0, 1.0,
+					1.0, 0.0,
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					
+					// bottom
+					
+					1.0, 1.0,
+					0.0, 1.0,
+					1.0, 0.0,
+					
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0
+					
+				];
+				
+				texCoordBuffer = gl.createBuffer();
+								
+				texCoordBuffer.itemSize = 2;
+				texCoordBuffer.itemCount = 36;
+				gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoordinates), gl.STATIC_DRAW);
+							
+			}
+			
+			function drawScene()
+			{
+				vertexPositionAttribute = gl.getAttribLocation(glProgram, "aVertexPosition");
+                gl.enableVertexAttribArray(vertexPositionAttribute);
+				gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+				gl.vertexAttribPointer(vertexPositionAttribute, vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+				vertexTexCoordAttribute = gl.getAttribLocation(glProgram, "aTexCoord");
+                gl.enableVertexAttribArray(vertexTexCoordAttribute);
+				gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+				gl.vertexAttribPointer(vertexTexCoordAttribute, texCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+				
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture1);
+				gl.uniform1i( glProgram.samplerUniform,  0);
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture4);
+				
+				gl.drawArrays(gl.TRIANGLES, 6, 6);
+				
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture2);
+				
+				gl.drawArrays(gl.TRIANGLES, 12, 6);
+				
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture3);
+				
+				gl.drawArrays(gl.TRIANGLES, 18, 6);
+				
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture5);
+				
+				gl.drawArrays(gl.TRIANGLES, 24, 6);
+				
+				gl.bindTexture(gl.TEXTURE_2D, boxTexture6);
+				
+				gl.drawArrays(gl.TRIANGLES, 30, 6);
+				
+			}
+
+		</script>
+	</head>
+	<body onload="initWebGL()">
+		<canvas id="my-canvas" width="500" height="500">
+		Your browser does not support the HTML5 canvas element.
+		</canvas>
+	</body>
+</html>
