@@ -1,0 +1,162 @@
+<?doctype HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./lib/jquery-1.11.0.min.js"></script>
+  <script src="./lib/three.min.js"></script>
+  <script src="./lib/d3.v3.min.js"></script>
+  <script src="LightedScene.js"></script>
+  <!-- vertex shader for custom lighting --->
+  <script id="light-vs" type="x-shader/x-vertex">
+    
+	// light struct
+    struct DLight {
+       vec3 pos;
+	   float intensity;
+	   vec4 color;
+    };
+	
+	struct SpotLight {
+		vec3 pos;
+		vec4 color;
+		float exponent;
+		float constAtt;
+		float linearAtt;
+		float quadraticAtt;
+	};
+	
+    uniform DLight dirLight;
+	uniform SpotLight spotLight;
+	
+    varying vec2 v_uv;    
+    varying vec3 vDirectLightDir;
+	varying vec3 vSpotLightDir;
+	varying vec3 vNormal;
+	varying vec3 vModelSpaceNormal;
+	varying vec3 vEye;
+	
+    void main() {
+		
+        // pass texcoords
+        v_uv = uv;
+
+        // compute vertex position 
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+		// and a temp MV position
+		vec4 posMV = modelViewMatrix * vec4(position, 1.0);
+		
+		vec3 directLightDir = dirLight.pos;
+		vDirectLightDir = normalize(directLightDir);
+		
+		vec3 spotLightPosMV = vec3(viewMatrix * vec4(spotLight.pos, 1.0));
+		vSpotLightDir = vec3(spotLightPosMV - vec3(posMV));
+		
+		vModelSpaceNormal = normal;
+		vNormal = normalize(normalMatrix * normal);
+		vEye = vec3(-posMV);
+    }
+
+  </script>
+  <!-- fragment shader for custom lighting --->
+  <script id="light-fs" type="x-shader/x-fragment">
+  	
+	// light structs
+    struct DLight {
+       vec3 pos;
+	   float intensity;
+	   vec4 color;
+    };
+	
+	struct SpotLight {
+		vec3 pos;
+		vec4 color;
+		float exponent;
+		float constAtt;
+		float linearAtt;
+		float quadraticAtt;
+	};
+	
+	// material struct
+	struct Material {
+		vec3 specularColor;
+		float shininess;		
+	};
+	
+	uniform DLight dirLight;
+	uniform SpotLight spotLight;
+	
+    uniform sampler2D map;
+	
+	uniform Material material;
+
+    varying vec2 v_uv;
+	varying vec3 vDirectLightDir;
+	varying vec3 vSpotLightDir;
+    varying vec3 vEye;
+	varying vec3 vNormal;
+	varying vec3 vModelSpaceNormal;
+
+	// global ambient
+    uniform vec4  u_ambient;
+    
+    void main(){
+		float dirSpecular = 0.0;
+		vec3 n = normalize(vModelSpaceNormal);
+		vec3 e = normalize(vEye);
+		
+		float dirDiffuseAmount = max(dot(n, vDirectLightDir), 0.0);
+		
+		vec3 directLightAmount = dirDiffuseAmount * vec3(dirLight.color);
+		
+		//////////////////
+		/// Spot Light ///
+		//////////////////
+		float spotSpecular = 0.0;
+		float spotDiffuseAmount =  0.0;
+		n = normalize(vNormal);
+		// distance for attentuation
+		float dist = length(vSpotLightDir);
+		
+		vec3 l = normalize(vSpotLightDir);
+		// determine how close to the center of the spot light this fragment is
+		vec3 spotDir = normalize(vec3(0.0,0.0,1.0));
+		float spotEffect = dot(spotDir, l);
+		
+		float attentuation = 0.0;
+		
+		// cone cut-off (hard-coded angle cos)
+		if( spotEffect > 0.98)
+		{
+			// determine the amount of light diminishing 
+			// based on distance from light source and from spot direction/cone center
+			spotEffect = pow(spotEffect, spotLight.exponent);
+			attentuation = spotEffect / (spotLight.constAtt + spotLight.linearAtt * dist
+				+ spotLight.quadraticAtt * dist * dist);
+			
+			// diffuse term
+			spotDiffuseAmount = max(dot(n, l), 0.0);
+			// calculate specular term
+			if (spotDiffuseAmount > 0.0) {
+				vec3 halfVector = normalize(l + e);
+				float spotSpecIntensity = dot(n, halfVector);
+				spotSpecIntensity = clamp(spotSpecIntensity, 0.0, 1.0);
+				spotSpecular = pow(spotSpecIntensity, material.shininess);
+			}
+		}
+		
+		// total spot light amount, taking light color + specular reflection color into account
+		vec3 spotLightAmount = attentuation * spotDiffuseAmount * vec3(spotLight.color);
+		spotLightAmount += attentuation * spotSpecular * material.specularColor;
+		
+		vec3 totalLight = vec3(u_ambient) + directLightAmount + spotLightAmount;
+		
+		vec4 textureColor = texture2D(map, v_uv);
+		gl_FragColor = vec4(textureColor.xyz * totalLight, textureColor.a);
+    }
+  </script>
+</head>
+<body>
+<div id="main" style="border: solid 1px;" width="800" height="600"></div>
+<div id="fps" style="position:absolute;width:100px;height:50px;top:10px; left:10px;"></div>
+</body>
+</html>
